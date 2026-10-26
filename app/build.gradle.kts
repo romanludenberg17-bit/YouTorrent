@@ -21,6 +21,33 @@ android {
         buildConfig = true
     }
 
+    val signingStoreFile = System.getenv("SIGNING_STORE_FILE")
+    val signingStorePassword = System.getenv("SIGNING_STORE_PASSWORD")
+    val signingKeyAlias = System.getenv("SIGNING_KEY_ALIAS")
+    val signingKeyPassword = System.getenv("SIGNING_KEY_PASSWORD")
+    val hasReleaseSigning = listOf(signingStoreFile, signingStorePassword, signingKeyAlias, signingKeyPassword)
+        .all { !it.isNullOrBlank() }
+
+    if (hasReleaseSigning) {
+        signingConfigs {
+            create("release") {
+                storeFile = file(signingStoreFile!!)
+                storePassword = signingStorePassword
+                keyAlias = signingKeyAlias
+                keyPassword = signingKeyPassword
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = false
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
+    }
+
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
     }
