@@ -35,9 +35,7 @@ class TorrentEngine private constructor(private val context: Context) {
         val normalized = magnet.trim()
         if (!normalized.startsWith("magnet:?")) return
         start()
-        runCatching {
-            session.download(normalized, saveDir, torrent_flags_t())
-        }
+        runCatching { session.download(normalized, saveDir, torrent_flags_t()) }
     }
 
     fun toggle(hash: String) {
@@ -57,7 +55,7 @@ class TorrentEngine private constructor(private val context: Context) {
         while (isActive) {
             runCatching {
                 session.getTorrentHandles().forEach { handle ->
-                    if (!handle.isValid) return@forEach
+                    if (!handle.isValid()) return@forEach
                     val status = handle.status()
                     val hash = handle.infoHash().toString()
                     val previous = repository.torrents.value.firstOrNull { it.hash == hash }
@@ -71,8 +69,8 @@ class TorrentEngine private constructor(private val context: Context) {
                         downloadRate = status.downloadRate(),
                         uploadRate = status.uploadRate(),
                         peers = status.numPeers(),
-                        paused = status.isPaused,
-                        finished = status.isFinished,
+                        paused = status.isPaused(),
+                        finished = status.progress() >= 0.99999f,
                     )
                     repository.upsert(item)
                 }
@@ -90,7 +88,7 @@ class TorrentEngine private constructor(private val context: Context) {
     }
 
     private fun find(hash: String): TorrentHandle? =
-        session.getTorrentHandles().firstOrNull { it.isValid && it.infoHash().toString() == hash }
+        session.getTorrentHandles().firstOrNull { it.isValid() && it.infoHash().toString() == hash }
 
     companion object {
         @Volatile private var instance: TorrentEngine? = null
