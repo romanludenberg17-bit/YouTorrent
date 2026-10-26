@@ -1,9 +1,13 @@
 package com.rommy.youtorrent
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -53,30 +57,53 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 class MainActivity : ComponentActivity() {
+    private val notificationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-        startTorrentService()
+        enableEdgeToEdge()
+        requestNotificationPermissionIfNeeded()
+
+        val initialMagnet = intent?.dataString?.takeIf { it.startsWith("magnet:?", ignoreCase = true) }
+        startTorrentService(initialMagnet, dispatchMagnet = savedInstanceState == null)
 
         setContent {
             YouTorrentTheme {
-                YouTorrentApp(initialMagnet = intent?.dataString)
+                YouTorrentApp(initialMagnet = initialMagnet)
             }
         }
     }
 
-    private fun startTorrentService() {
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        intent?.dataString
+            ?.takeIf { it.startsWith("magnet:?", ignoreCase = true) }
+            ?.let { magnet -> dispatchMagnet(magnet) }
+    }
+
+    private fun startTorrentService(initialMagnet: String?, dispatchMagnet: Boolean) {
         ContextCompat.startForegroundService(this, Intent(this, TorrentService::class.java))
-        intent?.dataString?.let { magnet ->
-            startService(
-                Intent(this, TorrentService::class.java)
-                    .setAction(TorrentService.ACTION_ADD_MAGNET)
-                    .putExtra(TorrentService.EXTRA_MAGNET, magnet),
-            )
+        if (dispatchMagnet) initialMagnet?.let(::dispatchMagnet)
+    }
+
+    private fun dispatchMagnet(magnet: String) {
+        startService(
+            Intent(this, TorrentService::class.java)
+                .setAction(TorrentService.ACTION_ADD_MAGNET)
+                .putExtra(TorrentService.EXTRA_MAGNET, magnet),
+        )
+    }
+
+    private fun requestNotificationPermissionIfNeeded() {
+        if (android.os.Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
 }
