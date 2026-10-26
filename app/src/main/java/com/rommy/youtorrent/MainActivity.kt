@@ -3,13 +3,11 @@ package com.rommy.youtorrent
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,8 +21,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Download
@@ -63,7 +59,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -122,7 +117,8 @@ private fun String.isMagnet(): Boolean = startsWith("magnet:?", ignoreCase = tru
 @Composable
 private fun YouTorrentTheme(content: @Composable () -> Unit) {
     val context = LocalContext.current
-    val colors = if (isSystemInDarkTheme()) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+    val dark = androidx.compose.foundation.isSystemInDarkTheme()
+    val colors = if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
     MaterialTheme(colorScheme = colors, content = content)
 }
 
@@ -155,7 +151,9 @@ private fun YouTorrentApp(
                 onClick = { showAddDialog = true },
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-            ) { Icon(Icons.Rounded.Add, contentDescription = "Add torrent") }
+            ) {
+                Icon(Icons.Rounded.Add, contentDescription = "Add torrent")
+            }
         },
     ) { padding ->
         Surface(
@@ -209,13 +207,15 @@ private fun YouTorrentApp(
             onDismiss = { showAddDialog = false },
             onAdd = {
                 val value = magnet.trim()
-                context.startService(
-                    Intent(context, TorrentService::class.java)
-                        .setAction(TorrentService.ACTION_ADD_MAGNET)
-                        .putExtra(TorrentService.EXTRA_MAGNET, value),
-                )
-                magnet = ""
-                showAddDialog = false
+                if (value.isMagnet()) {
+                    context.startService(
+                        Intent(context, TorrentService::class.java)
+                            .setAction(TorrentService.ACTION_ADD_MAGNET)
+                            .putExtra(TorrentService.EXTRA_MAGNET, value),
+                    )
+                    magnet = ""
+                    showAddDialog = false
+                }
             },
         )
     }
@@ -300,7 +300,10 @@ private fun TorrentCard(
                     IconButton(onClick = { menuExpanded = true }) {
                         Icon(Icons.Rounded.MoreVert, contentDescription = "More")
                     }
-                    DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                    DropdownMenu(
+                        expanded = menuExpanded,
+                        onDismissRequest = { menuExpanded = false },
+                    ) {
                         DropdownMenuItem(
                             text = { Text(if (torrent.paused) "Resume" else "Pause") },
                             leadingIcon = {
@@ -331,7 +334,10 @@ private fun TorrentCard(
             )
             Spacer(Modifier.height(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("${(torrent.progress.coerceIn(0f, 1f) * 100).toInt()}%", style = MaterialTheme.typography.labelLarge)
+                Text(
+                    "${(torrent.progress.coerceIn(0f, 1f) * 100).toInt()}%",
+                    style = MaterialTheme.typography.labelLarge,
+                )
                 Spacer(Modifier.weight(1f))
                 IconButton(onClick = onToggle) {
                     Icon(
@@ -349,9 +355,16 @@ private fun TorrentCard(
             title = { Text("Remove torrent?") },
             text = { Text("The torrent will be removed from YouTorrent. Downloaded files are kept.") },
             confirmButton = {
-                TextButton(onClick = { confirmRemove = false; onRemove() }) { Text("Remove") }
+                TextButton(
+                    onClick = {
+                        confirmRemove = false
+                        onRemove()
+                    },
+                ) { Text("Remove") }
             },
-            dismissButton = { TextButton(onClick = { confirmRemove = false }) { Text("Cancel") } },
+            dismissButton = {
+                TextButton(onClick = { confirmRemove = false }) { Text("Cancel") }
+            },
         )
     }
 }
@@ -374,17 +387,15 @@ private fun AddTorrentDialog(
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("Magnet link") },
                 minLines = 3,
-                singleLine = false,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { if (valid) onAdd() }),
                 isError = magnet.isNotBlank() && !valid,
-                supportingText = {
-                    if (magnet.isNotBlank() && !valid) Text("Enter a valid magnet:? link")
-                },
             )
         },
-        confirmButton = { TextButton(onClick = onAdd, enabled = valid) { Text("Add") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = {
+            TextButton(onClick = onAdd, enabled = valid) { Text("Add") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
     )
 }
 
@@ -412,7 +423,9 @@ private fun SettingsDialog(
                 Text("Notifications")
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Close") }
+        },
     )
 }
 
