@@ -11,11 +11,13 @@ import org.libtorrent4j.SessionManager
 import org.libtorrent4j.TorrentHandle
 import org.libtorrent4j.swig.torrent_flags_t
 import java.io.File
+import java.util.Collections
 
 class TorrentEngine private constructor(private val context: Context) {
     private val repository = TorrentRepositoryProvider.get(context)
     private val scope = CoroutineScope(Dispatchers.IO)
     private val session = SessionManager()
+    private val pendingMagnets = Collections.synchronizedList(mutableListOf<String>())
     private var pollJob: Job? = null
     private var started = false
     private val saveDir: File by lazy {
@@ -35,6 +37,7 @@ class TorrentEngine private constructor(private val context: Context) {
         val normalized = magnet.trim()
         if (!normalized.startsWith("magnet:?")) return
         start()
+        pendingMagnets.add(normalized)
         runCatching { session.download(normalized, saveDir, torrent_flags_t()) }
     }
 
@@ -59,9 +62,10 @@ class TorrentEngine private constructor(private val context: Context) {
                     val status = handle.status()
                     val hash = handle.infoHash().toString()
                     val previous = repository.torrents.value.firstOrNull { it.hash == hash }
+                    val magnet = previous?.magnet ?: pendingMagnets.removeFirstOrNull().orEmpty()
                     val item = TorrentItem(
                         hash = hash,
-                        magnet = previous?.magnet.orEmpty(),
+                        magnet = magnet,
                         name = status.name().ifBlank { previous?.name ?: "Torrent" },
                         totalBytes = status.total(),
                         downloadedBytes = status.totalDone(),
