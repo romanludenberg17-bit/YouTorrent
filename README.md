@@ -19,23 +19,36 @@ YouTorrent is intended to combine a clean, adaptive Android 17 interface with a 
 
 - Compose-first Android 17 project
 - Material 3 themed shell with dynamic system colors
-- empty state and torrent cards
-- magnet-link entry flow
-- pause/resume UI state
-- Android 17 local-network and foreground-service permissions prepared
-- libtorrent4j dependencies wired into the app module
+- torrent list with live libtorrent4j progress, speed and peer state
+- magnet-link entry flow and Android magnet deep links
+- pause/resume/remove actions backed by the real torrent session
+- persistent torrent metadata with restore-on-launch
+- foreground torrent service and notification
+- GitHub Actions debug APK build on pushes and pull requests
+- optional release APK signing through environment variables
+
+### release signing
+
+The release build supports signing without committing a keystore to the repository. Set these environment variables before running `assembleRelease`:
+
+- `SIGNING_STORE_FILE` — path to the `.jks`/`.keystore` file
+- `SIGNING_STORE_PASSWORD`
+- `SIGNING_KEY_ALIAS`
+- `SIGNING_KEY_PASSWORD`
+
+When all four values are present, the release variant uses the supplied signing key. Otherwise the release variant remains unsigned so CI and local builds do not require secrets.
+
+For GitHub Actions, keep the keystore and passwords in repository/environment secrets and materialize the keystore only during the release workflow. Never commit the keystore or passwords to Git.
 
 ### roadmap
 
-1. torrent engine/session layer backed by libtorrent4j
-2. persistent torrent database and restore-on-launch
-3. .torrent file picker and magnet intents
-4. foreground torrent service + notifications
-5. real progress, peers, trackers, speed and ETA
-6. file selection, priorities and sequential download
-7. network/proxy, limits, scheduling and storage settings
-8. adaptive phone/tablet/desktop layouts for Android 17
-9. accessibility, motion and Material 3 Expressive polish
+1. resume-data persistence for true session recovery
+2. torrent detail screen with files, priorities and trackers
+3. .torrent file picker and richer notification actions
+4. file selection, priorities and sequential download
+5. network/proxy, limits, scheduling and storage settings
+6. adaptive phone/tablet/desktop layouts for Android 17
+7. accessibility, motion and Material 3 Expressive polish
 
 ## references
 
