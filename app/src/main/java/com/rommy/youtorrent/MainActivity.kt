@@ -3,11 +3,13 @@ package com.rommy.youtorrent
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -71,8 +73,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val initialMagnet = intent?.dataString?.takeIf { it.isMagnet() }
-        startTorrentService(initialMagnet, dispatchMagnet = savedInstanceState == null)
+        val initialMagnet = intent?.dataString?.takeIf(String::isMagnet)
+        startTorrentService(initialMagnet, savedInstanceState == null)
 
         setContent {
             YouTorrentTheme {
@@ -87,7 +89,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
         setIntent(intent)
-        intent?.dataString?.takeIf { it.isMagnet() }?.let(::dispatchMagnet)
+        intent?.dataString?.takeIf(String::isMagnet)?.let(::dispatchMagnet)
     }
 
     private fun startTorrentService(initialMagnet: String?, dispatchMagnet: Boolean) {
@@ -104,7 +106,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestNotificationPermissionIfNeeded() {
-        if (android.os.Build.VERSION.SDK_INT >= 33 &&
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -117,8 +119,11 @@ private fun String.isMagnet(): Boolean = startsWith("magnet:?", ignoreCase = tru
 @Composable
 private fun YouTorrentTheme(content: @Composable () -> Unit) {
     val context = LocalContext.current
-    val dark = androidx.compose.foundation.isSystemInDarkTheme()
-    val colors = if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+    val colors = if (isSystemInDarkTheme()) {
+        dynamicDarkColorScheme(context)
+    } else {
+        dynamicLightColorScheme(context)
+    }
     MaterialTheme(colorScheme = colors, content = content)
 }
 
@@ -143,7 +148,9 @@ private fun YouTorrentApp(
                         Icon(Icons.Rounded.Settings, contentDescription = "Settings")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                ),
             )
         },
         floatingActionButton = {
@@ -157,7 +164,9 @@ private fun YouTorrentApp(
         },
     ) { padding ->
         Surface(
-            modifier = Modifier.fillMaxSize().padding(padding),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
             color = MaterialTheme.colorScheme.surface,
         ) {
             if (torrents.isEmpty()) {
@@ -233,7 +242,12 @@ private fun YouTorrentApp(
 
 @Composable
 private fun EmptyState(onAdd: () -> Unit) {
-    Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        contentAlignment = Alignment.Center,
+    ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Surface(
                 modifier = Modifier.size(96.dp),
@@ -250,7 +264,11 @@ private fun EmptyState(onAdd: () -> Unit) {
                 }
             }
             Spacer(Modifier.height(24.dp))
-            Text("nothing downloading", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Text(
+                "nothing downloading",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+            )
             Spacer(Modifier.height(8.dp))
             Text(
                 "add a magnet link to get started",
@@ -275,21 +293,36 @@ private fun TorrentCard(
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
     var confirmRemove by remember { mutableStateOf(false) }
+    val progress = torrent.progress.coerceIn(0f, 1f)
 
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        ),
         shape = MaterialTheme.shapes.extraLarge,
     ) {
-        Column(Modifier.fillMaxWidth().padding(18.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp),
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(torrent.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        torrent.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
                     Spacer(Modifier.height(4.dp))
                     Text(
                         buildString {
                             append(formatBytes(torrent.downloadedBytes))
-                            if (torrent.totalBytes > 0) append(" / ").append(formatBytes(torrent.totalBytes))
-                            if (torrent.downloadRate > 0) append(" · ").append(formatRate(torrent.downloadRate))
+                            if (torrent.totalBytes > 0) {
+                                append(" / ").append(formatBytes(torrent.totalBytes))
+                            }
+                            if (torrent.downloadRate > 0) {
+                                append(" · ").append(formatRate(torrent.downloadRate))
+                            }
                             append(" · ").append(torrent.peers).append(" peers")
                         },
                         style = MaterialTheme.typography.bodyMedium,
@@ -329,13 +362,13 @@ private fun TorrentCard(
             }
             Spacer(Modifier.height(14.dp))
             LinearProgressIndicator(
-                progress = { torrent.progress.coerceIn(0f, 1f) },
+                progress = progress,
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    "${(torrent.progress.coerceIn(0f, 1f) * 100).toInt()}%",
+                    "${(progress * 100).toInt()}%",
                     style = MaterialTheme.typography.labelLarge,
                 )
                 Spacer(Modifier.weight(1f))
@@ -360,10 +393,14 @@ private fun TorrentCard(
                         confirmRemove = false
                         onRemove()
                     },
-                ) { Text("Remove") }
+                ) {
+                    Text("Remove")
+                }
             },
             dismissButton = {
-                TextButton(onClick = { confirmRemove = false }) { Text("Cancel") }
+                TextButton(onClick = { confirmRemove = false }) {
+                    Text("Cancel")
+                }
             },
         )
     }
@@ -391,10 +428,14 @@ private fun AddTorrentDialog(
             )
         },
         confirmButton = {
-            TextButton(onClick = onAdd, enabled = valid) { Text("Add") }
+            TextButton(onClick = onAdd, enabled = valid) {
+                Text("Add")
+            }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
         },
     )
 }
@@ -424,7 +465,9 @@ private fun SettingsDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Close") }
+            TextButton(onClick = onDismiss) {
+                Text("Close")
+            }
         },
     )
 }
@@ -437,7 +480,7 @@ private fun formatBytes(value: Long): String {
     do {
         number /= 1024.0
         index++
-    } while (number >= 1024 && index < units.lastIndex)
+    } while (number >= 1024.0 && index < units.lastIndex)
     return "%.1f %s".format(number, units[index])
 }
 
